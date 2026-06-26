@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Menú Digital</title>
+  <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh;}
+    @keyframes popIn{0%{transform:scale(0.5);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+    @keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    ::-webkit-scrollbar{width:5px;}
+    ::-webkit-scrollbar-thumb{background:#10b981;border-radius:4px;}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef} = React;
+
+// ── Supabase ─────────────────────────────────────────────
+const SB_URL = 'https://jhuwepkpjjvponryzykp.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpodXdlcGtwamp2cG9ucnl6eWtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTQxNjEsImV4cCI6MjA5Nzk5MDE2MX0.RQddTSo3AtZqdJBhGKDRSv46Wg42iBKPYZeRM6ivCDE';
+const H = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`};
+const sb = {
+  async get(t,p=''){const r=await fetch(`${SB_URL}/rest/v1/${t}?${p}`,{headers:{...H,'Accept':'application/json'}});return r.json();},
+  async upsert(t,b){const r=await fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(b)});return r.json();},
+  async patch(t,id,b){const r=await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(b)});return r.json();},
+  async del(t,id){await fetch(`${SB_URL}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:H});}
+};
+
+// ── Colores ──────────────────────────────────────────────
+const C={
+  em:'#059669',emD:'#047857',emDD:'#064e3b',emL:'#d1fae5',emLL:'#f0fdf4',
+  gold:'#f59e0b',red:'#ef4444',white:'#ffffff',
+  bg:'#f0f2f5',card:'#ffffff',grayD:'#6b7280',dark:'#1f2937',
+};
+const CATS=['Proteínas','Carbohidratos','Ensaladas','Bebidas'];
+const CAT_ICONS={'Proteínas':'🍖','Carbohidratos':'🍚','Ensaladas':'🥗','Bebidas':'🥤'};
+const ADMIN_PIN='1234';
+const WA_NUMBER='573001234567'; // ← cambia tu número
+
+const DEFAULT_BIZ={name:'Bufé del Día',slogan:'Lo mejor de la cocina casera',logo:'',portada:''};
+const DEFAULT_PRODUCTS=[
+  {id:1,name:'Pollo asado',cat:'Proteínas',descripcion:'Muslo de pollo a la brasa',img:'',p_small:8000,p_large:12000,active:true},
+  {id:2,name:'Carne guisada',cat:'Proteínas',descripcion:'Res en salsa criolla',img:'',p_small:9000,p_large:14000,active:true},
+  {id:3,name:'Pescado frito',cat:'Proteínas',descripcion:'Mojarra con limón',img:'',p_small:10000,p_large:15000,active:true},
+  {id:4,name:'Arroz blanco',cat:'Carbohidratos',descripcion:'Arroz suelto',img:'',p_small:3000,p_large:5000,active:true},
+  {id:5,name:'Papas fritas',cat:'Carbohidratos',descripcion:'Crujientes y doradas',img:'',p_small:4000,p_large:6000,active:true},
+  {id:6,name:'Patacones',cat:'Carbohidratos',descripcion:'Plátano verde frito',img:'',p_small:3500,p_large:5500,active:true},
+  {id:7,name:'Ensalada fresca',cat:'Ensaladas',descripcion:'Lechuga, tomate, zanahoria',img:'',p_small:4000,p_large:6000,active:true},
+  {id:8,name:'Ensalada de aguacate',cat:'Ensaladas',descripcion:'Con limón y sal',img:'',p_small:5000,p_large:8000,active:true},
+  {id:9,name:'Jugo natural',cat:'Bebidas',descripcion:'Maracuyá, mango o guanábana',img:'',p_small:4000,p_large:6000,active:true},
+  {id:10,name:'Gaseosa',cat:'Bebidas',descripcion:'Lata 330ml',img:'',p_small:3000,p_large:0,active:true},
+];
+
+const fmt=n=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',minimumFractionDigits:0}).format(n);
+
+// ── UI helpers ───────────────────────────────────────────
+function Spinner(){
+  return <div style={{width:36,height:36,border:`3px solid ${C.emL}`,borderTop:`3px solid ${C.em}`,borderRadius:'50%',animation:'spin .8s linear infinite',margin:'0 auto'}}/>;
+}
+function Btn({children,onClick,color='em',size='md',style={},disabled=false}){
+  const bg={em:C.em,emD:C.emD,red:C.red,gold:C.gold,gray:'#e5e7eb'}[color]||C.em;
+  const tc=color==='gray'?C.dark:'#fff';
+  const pd=size==='sm'?'6px 12px':size==='lg'?'14px 28px':'10px 20px';
+  const fs=size==='sm'?'12px':size==='lg'?'16px':'14px';
+  return(
+    <button onClick={onClick} disabled={disabled} style={{background:disabled?'#d1d5db':bg,color:disabled?'#9ca3af':tc,border:'none',borderRadius:10,padding:pd,fontSize:fs,fontWeight:600,cursor:disabled?'not-allowed':'pointer',transition:'all .15s',...style}}>
+      {children}
+    </button>
+  );
+}
+function Modal({children,onClose}){
+  return(
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',display:'flex',alignItems:'flex-end',justifyContent:'center',zIndex:1000,animation:'fadeIn .2s'}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:C.white,borderRadius:'20px 20px 0 0',width:'100%',maxWidth:540,maxHeight:'93vh',overflowY:'auto',animation:'slideUp .28s',padding:'22px 18px 36px'}}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// PERFIL ESTILO FACEBOOK
+// ══════════════════════════════════════════════════════════
+function ProfileHeader({biz}){
+  return(
+    <div style={{background:C.white,marginBottom:8,boxShadow:'0 1px 4px rgba(0,0,0,.1)'}}>
+      {/* Foto portada */}
+      <div style={{
+        position:'relative',
+        height:200,
+        background:biz.portada
+          ?`url(${biz.portada}) center/cover no-repeat`
+          :`linear-gradient(135deg,${C.emDD} 0%,${C.em} 60%,${C.gold} 100%)`,
+        overflow:'hidden'
+      }}>
+        {!biz.portada&&(
+          <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'rgba(255,255,255,.3)',fontSize:48}}>
+            🍽️
+          </div>
+        )}
+        {/* Degradado inferior */}
+        <div style={{position:'absolute',bottom:0,left:0,right:0,height:80,background:'linear-gradient(transparent,rgba(0,0,0,.35))'}}/>
+      </div>
+
+      {/* Logo circular + info */}
+      <div style={{padding:'0 16px 16px',position:'relative'}}>
+        {/* Logo */}
+        <div style={{
+          position:'absolute',top:-44,left:16,
+          width:88,height:88,borderRadius:'50%',
+          border:'4px solid #fff',
+          background:biz.logo?`url(${biz.logo}) center/cover no-repeat`:`linear-gradient(135deg,${C.emD},${C.em})`,
+          display:'flex',alignItems:'center',justifyContent:'center',
+          fontSize:36,boxShadow:'0 2px 8px rgba(0,0,0,.2)',overflow:'hidden',
+          flexShrink:0
+        }}>{!biz.logo&&'🍽️'}</div>
+
+        {/* Nombre y slogan */}
+        <div style={{paddingTop:52,paddingLeft:4}}>
+          <h1 style={{fontSize:22,fontWeight:800,color:C.dark,lineHeight:1.2}}>{biz.name}</h1>
+          {biz.slogan&&<p style={{fontSize:13,color:C.grayD,marginTop:3}}>{biz.slogan}</p>}
+          <div style={{display:'flex',alignItems:'center',gap:6,marginTop:6}}>
+            <span style={{fontSize:12,color:C.em,fontWeight:600}}>● Abierto ahora</span>
+            <span style={{fontSize:12,color:C.grayD}}>· Pide por WhatsApp</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// VISTA CLIENTE
+// ══════════════════════════════════════════════════════════
+function ClienteView({products,biz}){
+  const [cat,setCat]               = useState('Proteínas');
+  const [cart,setCart]             = useState([]);
+  const [currentPlate,setCurrentPlate] = useState([]);
+  const [showCart,setShowCart]     = useState(false);
+  const [showForm,setShowForm]     = useState(false);
+  const [form,setForm]             = useState({nombre:'',telefono:'',direccion:''});
+  const [sent,setSent]             = useState(false);
+  const [plateAnim,setPlateAnim]   = useState(false);
+
+  const activeProd  = products.filter(p=>p.active&&p.cat===cat);
+  const totalPlates = cart.length+(currentPlate.length>0?1:0);
+  const allItems    = [...cart.flatMap(p=>p.items),...currentPlate];
+  const total       = allItems.reduce((s,i)=>s+i.price,0);
+
+  const addItem=(product,size)=>{
+    const price=size==='small'?product.p_small:product.p_large;
+    setCurrentPlate(prev=>[...prev,{product,size,price}]);
+    setPlateAnim(true);setTimeout(()=>setPlateAnim(false),600);
+  };
+  const savePlate=()=>{
+    if(!currentPlate.length)return;
+    setCart(prev=>[...prev,{plate:prev.length+1,items:currentPlate}]);
+    setCurrentPlate([]);
+  };
+  const removePlate=idx=>setCart(prev=>prev.filter((_,i)=>i!==idx));
+
+  const sendWA=()=>{
+    if(!form.nombre||!form.telefono||!form.direccion)return;
+    let txt=`🍽️ *NUEVO PEDIDO — ${biz.name}*\n\n`;
+    txt+=`👤 *${form.nombre}*\n📞 ${form.telefono}\n📍 ${form.direccion}\n\n`;
+    const allPlates=currentPlate.length?[...cart,{plate:cart.length+1,items:currentPlate}]:cart;
+    allPlates.forEach((p,i)=>{
+      txt+=`*Plato ${i+1}:*\n`;
+      p.items.forEach(it=>{txt+=`  • ${it.product.name} (${it.size==='small'?'Pequeño':'Grande'}) — ${fmt(it.price)}\n`;});
+    });
+    txt+=`\n💰 *Total: ${fmt(total)}*`;
+    window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(txt)}`,'_blank');
+    setSent(true);
+  };
+
+  if(sent)return(
+    <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:C.bg,padding:24,textAlign:'center'}}>
+      <div style={{fontSize:72,marginBottom:16}}>✅</div>
+      <h2 style={{color:C.em,fontSize:24,marginBottom:8}}>¡Pedido enviado!</h2>
+      <p style={{color:C.grayD,marginBottom:28}}>Tu pedido fue enviado por WhatsApp.<br/>En breve te confirmamos.</p>
+      <Btn size="lg" onClick={()=>{setSent(false);setCart([]);setCurrentPlate([]);setForm({nombre:'',telefono:'',direccion:''});}}>Nuevo pedido</Btn>
+    </div>
+  );
+
+  return(
+    <div style={{minHeight:'100vh',background:C.bg,paddingBottom:110}}>
+
+      {/* Perfil estilo Facebook */}
+      <ProfileHeader biz={biz}/>
+
+      {/* Selector categorías activo */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,padding:'0 12px 12px',background:C.bg}}>
+        {CATS.map(c=>(
+          <button key={c} onClick={()=>setCat(c)} style={{
+            padding:'10px 4px',borderRadius:12,border:'none',cursor:'pointer',
+            background:cat===c?C.em:C.white,
+            color:cat===c?'#fff':C.grayD,
+            fontWeight:700,fontSize:11,textAlign:'center',
+            boxShadow:cat===c?`0 2px 8px rgba(5,150,105,.35)`:'0 1px 3px rgba(0,0,0,.08)',
+            transition:'all .15s'
+          }}>
+            <div style={{fontSize:22,marginBottom:3}}>{CAT_ICONS[c]}</div>
+            <div style={{lineHeight:1.2}}>{c.length>10?c.substring(0,8)+'..':c}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* Banner plato en curso */}
+      {currentPlate.length>0&&(
+        <div style={{margin:'0 12px 12px',background:'#fffbeb',border:`1px solid ${C.gold}`,borderRadius:10,padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontSize:13,color:'#92400e',fontWeight:600}}>🍽️ Plato {cart.length+1} — {currentPlate.length} ítem{currentPlate.length>1?'s':''}</span>
+          <Btn size="sm" color="em" onClick={savePlate}>Guardar →</Btn>
+        </div>
+      )}
+
+      {/* Grid productos */}
+      <div style={{padding:'0 12px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+        {activeProd.map(p=>(
+          <div key={p.id} style={{background:C.white,borderRadius:14,overflow:'hidden',boxShadow:'0 1px 6px rgba(0,0,0,.08)'}}>
+            <div style={{
+              height:96,
+              background:p.img?`url(${p.img}) center/cover no-repeat`:`linear-gradient(135deg,${C.emL},#bbf7d0)`,
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:36
+            }}>{!p.img&&CAT_ICONS[p.cat]}</div>
+            <div style={{padding:'10px 10px 12px'}}>
+              <p style={{fontWeight:700,fontSize:13,color:C.dark,marginBottom:2}}>{p.name}</p>
+              <p style={{fontSize:11,color:C.grayD,marginBottom:8,lineHeight:1.4}}>{p.descripcion}</p>
+              <div style={{display:'flex',flexDirection:'column',gap:5}}>
+                <button onClick={()=>addItem(p,'small')} style={{background:C.emLL,border:`1.5px solid ${C.em}`,borderRadius:7,padding:'6px 8px',fontSize:11,color:C.emD,fontWeight:700,cursor:'pointer',textAlign:'left'}}>
+                  Pequeño — {fmt(p.p_small)}
+                </button>
+                {p.p_large>0&&(
+                  <button onClick={()=>addItem(p,'large')} style={{background:'#fffbeb',border:`1.5px solid ${C.gold}`,borderRadius:7,padding:'6px 8px',fontSize:11,color:'#92400e',fontWeight:700,cursor:'pointer',textAlign:'left'}}>
+                    Grande — {fmt(p.p_large)}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+        {activeProd.length===0&&(
+          <p style={{color:C.grayD,gridColumn:'1/-1',textAlign:'center',padding:32,fontSize:14}}>Sin productos en esta categoría</p>
+        )}
+      </div>
+
+      {/* Botón flotante */}
+      {(currentPlate.length>0||cart.length>0)&&(
+        <button onClick={()=>setShowCart(true)} style={{
+          position:'fixed',bottom:26,right:18,width:64,height:64,borderRadius:'50%',
+          background:`linear-gradient(135deg,${C.em},${C.emD})`,
+          border:'3px solid #fff',boxShadow:`0 6px 20px rgba(5,150,105,.5)`,
+          fontSize:28,cursor:'pointer',zIndex:200,
+          animation:plateAnim?'popIn .5s':'bounce 2.5s infinite',
+          display:'flex',alignItems:'center',justifyContent:'center'
+        }}>
+          🍽️
+          <span style={{position:'absolute',top:-5,right:-5,background:C.red,color:'#fff',borderRadius:'50%',width:22,height:22,fontSize:11,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff'}}>{totalPlates}</span>
+        </button>
+      )}
+
+      {/* Modal carrito */}
+      {showCart&&(
+        <Modal onClose={()=>setShowCart(false)}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <h2 style={{color:C.emDD,fontSize:18}}>🛒 Tu pedido</h2>
+            <button onClick={()=>setShowCart(false)} style={{background:'none',border:'none',fontSize:22,cursor:'pointer',color:C.grayD}}>✕</button>
+          </div>
+          {cart.map((p,i)=>(
+            <div key={i} style={{background:C.emLL,borderRadius:10,padding:'10px 12px',marginBottom:8}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
+                <span style={{fontWeight:700,color:C.em,fontSize:13}}>Plato {i+1}</span>
+                <button onClick={()=>removePlate(i)} style={{background:'none',border:'none',color:C.red,cursor:'pointer',fontSize:12,fontWeight:600}}>🗑 Quitar</button>
+              </div>
+              {p.items.map((it,j)=>(
+                <div key={j} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.dark,padding:'2px 0'}}>
+                  <span>{it.product.name} ({it.size==='small'?'Peq':'Gde'})</span>
+                  <span style={{fontWeight:600}}>{fmt(it.price)}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+          {currentPlate.length>0&&(
+            <div style={{background:'#fffbeb',border:`1px dashed ${C.gold}`,borderRadius:10,padding:'10px 12px',marginBottom:8}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
+                <span style={{fontWeight:700,color:'#92400e',fontSize:13}}>Plato {cart.length+1} (en curso)</span>
+                <Btn size="sm" color="em" onClick={savePlate}>Guardar</Btn>
+              </div>
+              {currentPlate.map((it,j)=>(
+                <div key={j} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.dark,padding:'2px 0'}}>
+                  <span>{it.product.name} ({it.size==='small'?'Peq':'Gde'})</span>
+                  <span style={{fontWeight:600}}>{fmt(it.price)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {allItems.length===0&&<p style={{color:C.grayD,textAlign:'center',padding:24}}>Aún no has agregado nada</p>}
+          {allItems.length>0&&(
+            <>
+              <div style={{borderTop:`2px solid ${C.emL}`,margin:'14px 0',paddingTop:12,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontWeight:700,color:C.dark,fontSize:15}}>Total</span>
+                <span style={{fontWeight:800,color:C.em,fontSize:20}}>{fmt(total)}</span>
+              </div>
+              <Btn color="em" size="lg" style={{width:'100%'}} onClick={()=>{setShowCart(false);setShowForm(true);}}>
+                Enviar pedido por WhatsApp 📲
+              </Btn>
+            </>
+          )}
+        </Modal>
+      )}
+
+      {/* Modal formulario */}
+      {showForm&&(
+        <Modal onClose={()=>setShowForm(false)}>
+          <h2 style={{color:C.emDD,fontSize:18,marginBottom:4}}>📋 Datos de entrega</h2>
+          <p style={{color:C.grayD,fontSize:13,marginBottom:18}}>Completa para enviar tu pedido</p>
+          {[['nombre','👤 Nombre completo','text','Tu nombre...'],['telefono','📞 Teléfono','tel','3001234567'],['direccion','📍 Dirección de entrega','text','Barrio, calle, número...']].map(([k,l,t,ph])=>(
+            <div key={k} style={{marginBottom:14}}>
+              <label style={{fontSize:13,fontWeight:600,color:C.dark,display:'block',marginBottom:5}}>{l}</label>
+              <input type={t} value={form[k]} onChange={e=>setForm(v=>({...v,[k]:e.target.value}))} placeholder={ph}
+                style={{width:'100%',padding:'11px 14px',borderRadius:9,border:`1.5px solid ${form[k]?C.em:'#d1d5db'}`,fontSize:14,outline:'none'}}/>
+            </div>
+          ))}
+          <Btn color="em" size="lg" style={{width:'100%',marginTop:6}} disabled={!form.nombre||!form.telefono||!form.direccion} onClick={sendWA}>
+            Confirmar y enviar 🚀
+          </Btn>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// ADMIN
+// ══════════════════════════════════════════════════════════
+function AdminView({products,setProducts,biz,setBiz,onLogout}){
+  const [tab,setTab]           = useState('negocio');
+  const [editing,setEditing]   = useState(null);
+  const [showForm,setShowForm] = useState(false);
+  const [saving,setSaving]     = useState(false);
+  const [toast,setToast]       = useState('');
+  const [bizForm,setBizForm]   = useState({...biz});
+  const empty={name:'',cat:'Proteínas',descripcion:'',img:'',p_small:0,p_large:0,active:true};
+  const [form,setForm]         = useState(empty);
+  const imgRef=useRef(); const logoRef=useRef(); const portadaRef=useRef();
+
+  const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(''),2500);};
+
+  const openNew =()=>{setForm(empty);setEditing(null);setShowForm(true);};
+  const openEdit=p=>{setForm({...p});setEditing(p.id);setShowForm(true);};
+
+  const save=async()=>{
+    if(!form.name)return;
+    setSaving(true);
+    try{
+      if(editing){
+        await sb.patch('productos',editing,{name:form.name,cat:form.cat,descripcion:form.descripcion,img:form.img,p_small:form.p_small,p_large:form.p_large,active:form.active});
+        setProducts(prev=>prev.map(p=>p.id===editing?{...form,id:editing}:p));
+      } else {
+        const nid=Date.now();
+        await sb.upsert('productos',[{id:nid,name:form.name,cat:form.cat,descripcion:form.descripcion,img:form.img,p_small:form.p_small,p_large:form.p_large,active:form.active}]);
+        setProducts(prev=>[...prev,{...form,id:nid}]);
+      }
+      setShowForm(false);
+      showToast(editing?'✅ Producto actualizado':'✅ Producto agregado');
+    }catch(e){showToast('❌ Error al guardar');}
+    setSaving(false);
+  };
+
+  const del=async id=>{
+    if(!confirm('¿Eliminar producto?'))return;
+    await sb.del('productos',id);
+    setProducts(prev=>prev.filter(p=>p.id!==id));
+    showToast('🗑 Eliminado');
+  };
+  const toggle=async id=>{
+    const p=products.find(x=>x.id===id);
+    await sb.patch('productos',id,{active:!p.active});
+    setProducts(prev=>prev.map(x=>x.id===id?{...x,active:!x.active}:x));
+  };
+
+  const readFile=cb=>e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>cb(ev.target.result);r.readAsDataURL(f);};
+
+  const saveBiz=async()=>{
+    setSaving(true);
+    try{
+      await sb.upsert('negocio',[{id:1,name:bizForm.name,logo:bizForm.logo,portada:bizForm.portada||'',slogan:bizForm.slogan||''}]);
+      setBiz(bizForm);
+      showToast('✅ Negocio guardado');
+    }catch(e){showToast('❌ Error al guardar');}
+    setSaving(false);
+  };
+
+  return(
+    <div style={{minHeight:'100vh',background:'#f9fafb',paddingBottom:40}}>
+      {toast&&<div style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',background:C.emDD,color:'#fff',padding:'10px 20px',borderRadius:10,fontSize:14,fontWeight:600,zIndex:2000,boxShadow:'0 4px 16px rgba(0,0,0,.2)',whiteSpace:'nowrap'}}>{toast}</div>}
+
+      {/* Header */}
+      <div style={{background:`linear-gradient(135deg,${C.emDD},${C.emD})`,padding:'16px',color:'#fff',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:38,height:38,borderRadius:'50%',background:biz.logo?`url(${biz.logo}) center/cover`:' rgba(255,255,255,.15)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,border:'2px solid rgba(255,255,255,.3)',overflow:'hidden'}}>
+            {!biz.logo&&'⚙️'}
+          </div>
+          <div>
+            <h1 style={{fontSize:16,fontWeight:800}}>Administración</h1>
+            <p style={{fontSize:11,opacity:.7}}>{biz.name}</p>
+          </div>
+        </div>
+        <button onClick={onLogout} style={{background:'rgba(255,255,255,.15)',border:'1px solid rgba(255,255,255,.25)',color:'#fff',borderRadius:8,padding:'6px 14px',cursor:'pointer',fontSize:12,fontWeight:600}}>Salir →</button>
+      </div>
+
+      {/* Tabs */}
+      <div style={{display:'flex',background:'#fff',borderBottom:'2px solid #e5e7eb'}}>
+        {[{k:'negocio',l:'🏪 Negocio'},{k:'productos',l:`📦 Productos (${products.length})`}].map(t=>(
+          <button key={t.k} onClick={()=>setTab(t.k)} style={{flex:1,padding:'13px 8px',border:'none',cursor:'pointer',fontWeight:600,fontSize:13,background:tab===t.k?C.emLL:'#fff',color:tab===t.k?C.em:C.grayD,borderBottom:tab===t.k?`3px solid ${C.em}`:'3px solid transparent',transition:'all .15s'}}>{t.l}</button>
+        ))}
+      </div>
+
+      {/* TAB NEGOCIO */}
+      {tab==='negocio'&&(
+        <div style={{padding:16,maxWidth:500}}>
+          <h2 style={{color:C.emDD,fontSize:15,fontWeight:700,marginBottom:16}}>Información del negocio</h2>
+
+          {/* Foto portada */}
+          <div style={{marginBottom:20}}>
+            <label style={{fontSize:13,fontWeight:600,color:C.dark,display:'block',marginBottom:8}}>📸 Foto de portada</label>
+            <div onClick={()=>portadaRef.current.click()} style={{
+              width:'100%',height:140,borderRadius:12,cursor:'pointer',
+              background:bizForm.portada?`url(${bizForm.portada}) center/cover no-repeat`:`linear-gradient(135deg,${C.emDD},${C.em})`,
+              border:`2px dashed ${C.em}`,display:'flex',alignItems:'center',justifyContent:'center',
+              fontSize:bizForm.portada?0:32,color:'rgba(255,255,255,.6)',overflow:'hidden',position:'relative'
+            }}>
+              {!bizForm.portada&&<div style={{textAlign:'center',color:'rgba(255,255,255,.7)'}}>
+                <div style={{fontSize:32}}>📸</div>
+                <div style={{fontSize:12,marginTop:4}}>Toca para subir portada</div>
+              </div>}
+            </div>
+            <input ref={portadaRef} type="file" accept="image/*" onChange={readFile(v=>setBizForm(f=>({...f,portada:v})))} style={{display:'none'}}/>
+            {bizForm.portada&&<button onClick={()=>setBizForm(f=>({...f,portada:''}))} style={{background:'none',border:'none',color:C.red,fontSize:12,cursor:'pointer',marginTop:5,fontWeight:600}}>✕ Quitar portada</button>}
+          </div>
+
+          {/* Logo */}
+          <div style={{marginBottom:20}}>
+            <label style={{fontSize:13,fontWeight:600,color:C.dark,display:'block',marginBottom:8}}>🖼️ Logo (circular)</label>
+            <div style={{display:'flex',alignItems:'center',gap:14}}>
+              <div onClick={()=>logoRef.current.click()} style={{
+                width:80,height:80,borderRadius:'50%',cursor:'pointer',flexShrink:0,
+                background:bizForm.logo?`url(${bizForm.logo}) center/cover no-repeat`:`linear-gradient(135deg,${C.emD},${C.em})`,
+                border:`3px dashed ${C.em}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,overflow:'hidden'
+              }}>{!bizForm.logo&&'📷'}</div>
+              <div>
+                <Btn size="sm" color="em" onClick={()=>logoRef.current.click()}>{bizForm.logo?'Cambiar logo':'Subir logo'}</Btn>
+                {bizForm.logo&&<button onClick={()=>setBizForm(f=>({...f,logo:''}))} style={{display:'block',marginTop:6,background:'none',border:'none',color:C.red,fontSize:12,cursor:'pointer',fontWeight:600}}>✕ Quitar</button>}
+                <p style={{fontSize:11,color:C.grayD,marginTop:5}}>Aparece como foto de perfil</p>
+              </div>
+            </div>
+            <input ref={logoRef} type="file" accept="image/*" onChange={readFile(v=>setBizForm(f=>({...f,logo:v})))} style={{display:'none'}}/>
+          </div>
+
+          {/* Nombre y slogan */}
+          {[['name','🏪 Nombre del negocio','Bufé Doña Martha'],['slogan','💬 Slogan o descripción','Lo mejor de la cocina casera']].map(([k,l,ph])=>(
+            <div key={k} style={{marginBottom:16}}>
+              <label style={{fontSize:13,fontWeight:600,color:C.dark,display:'block',marginBottom:6}}>{l}</label>
+              <input value={bizForm[k]||''} onChange={e=>setBizForm(f=>({...f,[k]:e.target.value}))} placeholder={ph}
+                style={{width:'100%',padding:'11px 14px',borderRadius:9,border:`1.5px solid ${C.em}`,fontSize:14,outline:'none'}}/>
+            </div>
+          ))}
+
+          <Btn color="em" size="lg" style={{width:'100%'}} disabled={saving} onClick={saveBiz}>
+            {saving?'Guardando...':'Guardar en Supabase ☁️'}
+          </Btn>
+
+          {/* Preview */}
+          <div style={{marginTop:20,borderRadius:12,overflow:'hidden',boxShadow:'0 2px 12px rgba(0,0,0,.1)'}}>
+            <p style={{fontSize:11,color:C.grayD,padding:'8px 12px',background:'#f3f4f6',fontWeight:600}}>Vista previa del perfil:</p>
+            <ProfileHeader biz={bizForm}/>
+          </div>
+        </div>
+      )}
+
+      {/* TAB PRODUCTOS */}
+      {tab==='productos'&&(
+        <div style={{padding:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+            <p style={{fontSize:13,color:C.grayD}}>{products.filter(p=>p.active).length} activos · {products.length} total</p>
+            <Btn color="em" size="sm" onClick={openNew}>+ Nuevo</Btn>
+          </div>
+          {CATS.map(cat=>(
+            <div key={cat} style={{marginBottom:20}}>
+              <h3 style={{color:C.emDD,fontSize:13,fontWeight:700,marginBottom:8,padding:'7px 12px',background:C.emL,borderRadius:8}}>{CAT_ICONS[cat]} {cat}</h3>
+              {products.filter(p=>p.cat===cat).map(p=>(
+                <div key={p.id} style={{background:'#fff',borderRadius:10,padding:'11px 12px',marginBottom:8,display:'flex',gap:10,alignItems:'center',opacity:p.active?1:.5,boxShadow:'0 1px 4px rgba(0,0,0,.06)'}}>
+                  <div style={{width:46,height:46,borderRadius:8,flexShrink:0,background:p.img?`url(${p.img}) center/cover no-repeat`:`linear-gradient(135deg,${C.emL},${C.emLL})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{!p.img&&CAT_ICONS[p.cat]}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{fontWeight:700,fontSize:13,color:C.dark}}>{p.name}</p>
+                    <p style={{fontSize:11,color:C.grayD}}>{fmt(p.p_small)}{p.p_large>0?` / ${fmt(p.p_large)}`:''}</p>
+                  </div>
+                  <div style={{display:'flex',gap:5,flexShrink:0,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                    <button onClick={()=>toggle(p.id)} style={{background:p.active?'#dcfce7':'#fef3c7',border:'none',borderRadius:6,padding:'4px 8px',fontSize:11,cursor:'pointer',fontWeight:600,color:p.active?'#166534':'#92400e'}}>{p.active?'✓ Activo':'Oculto'}</button>
+                    <button onClick={()=>openEdit(p)} style={{background:'#eff6ff',border:'none',borderRadius:6,padding:'4px 8px',fontSize:11,cursor:'pointer',color:'#1d4ed8',fontWeight:600}}>Editar</button>
+                    <button onClick={()=>del(p.id)} style={{background:'#fef2f2',border:'none',borderRadius:6,padding:'4px 8px',fontSize:11,cursor:'pointer',color:C.red,fontWeight:600}}>🗑</button>
+                  </div>
+                </div>
+              ))}
+              {products.filter(p=>p.cat===cat).length===0&&<p style={{color:C.grayD,fontSize:12,padding:'6px 10px'}}>Sin productos</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal producto */}
+      {showForm&&(
+        <Modal onClose={()=>setShowForm(false)}>
+          <h2 style={{color:C.emDD,fontSize:17,marginBottom:16}}>{editing?'Editar producto':'Nuevo producto'}</h2>
+          <div style={{marginBottom:14}}>
+            <div onClick={()=>imgRef.current.click()} style={{width:'100%',height:110,borderRadius:10,cursor:'pointer',background:form.img?`url(${form.img}) center/cover no-repeat`:`linear-gradient(135deg,${C.emL},${C.emLL})`,border:`2px dashed ${C.em}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,overflow:'hidden'}}>
+              {!form.img&&'📷'}
+            </div>
+            <input ref={imgRef} type="file" accept="image/*" onChange={readFile(v=>setForm(f=>({...f,img:v})))} style={{display:'none'}}/>
+            {form.img&&<button onClick={()=>setForm(f=>({...f,img:''}))} style={{background:'none',border:'none',color:C.red,fontSize:12,cursor:'pointer',marginTop:5,fontWeight:600}}>✕ Quitar imagen</button>}
+          </div>
+          {[['name','Nombre del producto','Ej: Pollo asado'],['descripcion','Descripción corta','Ej: Con arroz y ensalada']].map(([k,l,ph])=>(
+            <div key={k} style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontWeight:600,color:C.dark,display:'block',marginBottom:4}}>{l}</label>
+              <input value={form[k]||''} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} placeholder={ph}
+                style={{width:'100%',padding:'9px 12px',borderRadius:8,border:'1.5px solid #d1d5db',fontSize:13,outline:'none'}}/>
+            </div>
+          ))}
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:12,fontWeight:600,color:C.dark,display:'block',marginBottom:4}}>Categoría</label>
+            <select value={form.cat} onChange={e=>setForm(f=>({...f,cat:e.target.value}))}
+              style={{width:'100%',padding:'9px 12px',borderRadius:8,border:'1.5px solid #d1d5db',fontSize:13,outline:'none',background:'#fff'}}>
+              {CATS.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+            {[['p_small','💚 Precio Pequeño'],['p_large','🌟 Precio Grande (0=no aplica)']].map(([k,l])=>(
+              <div key={k}>
+                <label style={{fontSize:11,fontWeight:600,color:C.dark,display:'block',marginBottom:4}}>{l}</label>
+                <input type="number" value={form[k]} onChange={e=>setForm(f=>({...f,[k]:Number(e.target.value)}))}
+                  style={{width:'100%',padding:'9px 12px',borderRadius:8,border:'1.5px solid #d1d5db',fontSize:13,outline:'none'}}/>
+              </div>
+            ))}
+          </div>
+          <div style={{display:'flex',gap:10}}>
+            <Btn color="gray" onClick={()=>setShowForm(false)} style={{flex:1}}>Cancelar</Btn>
+            <Btn color="em" onClick={save} disabled={!form.name||saving} style={{flex:1}}>{saving?'Guardando...':editing?'Guardar':'Agregar'}</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════════════════════
+function AdminLogin({onLogin}){
+  const [pin,setPin]=useState('');const [err,setErr]=useState(false);
+  const check=()=>{if(pin===ADMIN_PIN){onLogin();}else{setErr(true);setPin('');}};
+  return(
+    <div style={{minHeight:'100vh',background:`linear-gradient(135deg,${C.emDD},${C.em})`,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+      <div style={{background:'#fff',borderRadius:20,padding:'32px 24px',width:'100%',maxWidth:320,textAlign:'center',boxShadow:'0 20px 60px rgba(0,0,0,.2)'}}>
+        <div style={{fontSize:52,marginBottom:12}}>🔐</div>
+        <h2 style={{color:C.emDD,marginBottom:6,fontSize:20}}>Acceso Admin</h2>
+        <p style={{color:C.grayD,fontSize:13,marginBottom:22}}>Ingresa el PIN de administrador</p>
+        <input type="password" value={pin} onChange={e=>{setPin(e.target.value);setErr(false);}} onKeyDown={e=>e.key==='Enter'&&check()} placeholder="• • • •" maxLength={6}
+          style={{width:'100%',padding:'13px',borderRadius:10,border:`2px solid ${err?C.red:C.em}`,fontSize:22,textAlign:'center',letterSpacing:10,outline:'none',marginBottom:8,fontFamily:'monospace'}}/>
+        {err&&<p style={{color:C.red,fontSize:12,marginBottom:8}}>PIN incorrecto</p>}
+        <Btn color="em" size="lg" style={{width:'100%'}} onClick={check}>Entrar</Btn>
+        <p style={{marginTop:14,fontSize:11,color:'#d1d5db'}}>PIN por defecto: 1234</p>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// APP
+// ══════════════════════════════════════════════════════════
+function App(){
+  const [products,setProducts]=useState([]);
+  const [biz,setBiz]=useState(DEFAULT_BIZ);
+  const [view,setView]=useState('cliente');
+  const [loading,setLoading]=useState(true);
+  const [tapCount,setTapCount]=useState(0);
+  const tapTimer=useRef(null);
+
+  useEffect(()=>{
+    (async()=>{
+      try{
+        const [prods,bizData]=await Promise.all([sb.get('productos','order=id'),sb.get('negocio','id=eq.1')]);
+        if(Array.isArray(prods)&&prods.length>0) setProducts(prods);
+        else{
+          await sb.upsert('productos',DEFAULT_PRODUCTS.map(p=>({id:p.id,name:p.name,cat:p.cat,descripcion:p.descripcion,img:p.img,p_small:p.p_small,p_large:p.p_large,active:p.active})));
+          setProducts(DEFAULT_PRODUCTS);
+        }
+        if(Array.isArray(bizData)&&bizData.length>0) setBiz({...DEFAULT_BIZ,...bizData[0]});
+      }catch(e){setProducts(DEFAULT_PRODUCTS);}
+      setLoading(false);
+    })();
+  },[]);
+
+  const handleFooterTap=()=>{
+    setTapCount(n=>n+1);
+    clearTimeout(tapTimer.current);
+    tapTimer.current=setTimeout(()=>setTapCount(0),900);
+  };
+  useEffect(()=>{if(tapCount>=3){setView('adminLogin');setTapCount(0);}},[tapCount]);
+
+  if(loading)return(
+    <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:C.bg,gap:16}}>
+      <Spinner/>
+      <p style={{color:C.em,fontSize:14,fontWeight:600}}>Cargando menú...</p>
+    </div>
+  );
+
+  if(view==='adminLogin')return <AdminLogin onLogin={()=>setView('admin')}/>;
+  if(view==='admin')return <AdminView products={products} setProducts={setProducts} biz={biz} setBiz={setBiz} onLogout={()=>setView('cliente')}/>;
+
+  return(
+    <div>
+      <ClienteView products={products} biz={biz}/>
+      <div onClick={handleFooterTap} style={{textAlign:'center',padding:'12px 0 8px',background:C.bg,borderTop:`1px solid ${C.emL}`}}>
+        <p style={{fontSize:10,color:'#d1d5db',userSelect:'none'}}>© {biz.name} · v3.0</p>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
