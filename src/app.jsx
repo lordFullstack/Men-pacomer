@@ -154,6 +154,15 @@ function isOpenNow(biz){
 }
 
 // ── UI helpers ───────────────────────────────────────────
+// Firma de Synaptix AI Labs (estilos .splash__* en index.template.html)
+function Firma({readable=false,style}){
+  return(
+    <div className="splash__sign" aria-hidden={readable?undefined:'true'} style={style}>
+      <span className="splash__by">hecho por</span>
+      <span className="splash__brand">Synaptix <span className="splash__ai">AI Labs</span></span>
+    </div>
+  );
+}
 function Spinner(){
   return <div role="status" aria-label="Cargando" style={{width:36,height:36,border:`3px solid ${C.emL}`,borderTop:`3px solid ${C.em}`,borderRadius:'50%',animation:'spin .8s linear infinite',margin:'0 auto'}}/>;
 }
@@ -907,9 +916,10 @@ function App(){
   useEffect(()=>{if(tapCount>=3){setView(auth.session?'admin':'adminLogin');setTapCount(0);}},[tapCount]);
 
   if(status==='loading')return(
-    <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:C.bg,gap:16}}>
+    <div className="splash" style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:C.bg,gap:16,position:'relative'}}>
       <Spinner/>
       <p style={{color:C.em,fontSize:14,fontWeight:600}}>Cargando menú...</p>
+      <Firma/>
     </div>
   );
 
@@ -932,7 +942,8 @@ function App(){
         <ClienteView products={products} biz={biz}/>
       )}
       <footer onClick={handleFooterTap} style={{textAlign:'center',padding:'12px 16px 8px',background:C.bg,borderTop:`1px solid ${C.emL}`}}>
-        <p style={{fontSize:11,color:C.grayD,userSelect:'none'}}>© {biz.name.trim()} · {VERSION} · Desarrollado por Jorge Ghisays & Claude 🤖</p>
+        <p style={{fontSize:11,color:C.grayD,userSelect:'none',marginBottom:6}}>© {biz.name.trim()} · {VERSION}</p>
+        <Firma readable/>
       </footer>
     </div>
   );

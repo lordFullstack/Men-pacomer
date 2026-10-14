@@ -24,6 +24,15 @@
     input:focus,select:focus,textarea:focus{border-color:#3f7d2a!important;box-shadow:0 0 0 3px rgba(63,125,42,.2);}
     .cats{scrollbar-width:none;}
     .cats::-webkit-scrollbar{display:none;}
+    /* Firma Synaptix AI Labs. Colores de .splash__by/.splash__brand adaptados a fondo claro
+       (el original usa #8A93C9 y #fff, pensados para splash oscuro) */
+    .splash__sign{display:flex;flex-direction:column;align-items:center;gap:2px;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;}
+    .splash .splash__sign{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);animation:sp-up .5s ease .8s both;}
+    .splash__by{font-size:10px;letter-spacing:.06em;color:#6b7280;}
+    .splash__brand{font-size:14px;font-weight:800;color:#2c1a0e;letter-spacing:-.01em;}
+    .splash__ai{font-weight:700;background:linear-gradient(90deg,#00E5FF,#0066FF,#8A2BE2,#00E5FF);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sp-grad 6s linear infinite;}
+    @keyframes sp-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes sp-grad{to{background-position:300% 0}}
     @keyframes popIn{0%{transform:scale(0.5);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
     @keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
