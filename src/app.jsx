@@ -232,15 +232,10 @@ function ProfileHeader({biz}){
   return(
     <header style={{background:C.white,marginBottom:12,boxShadow:'0 1px 4px rgba(0,0,0,.1)'}}>
       {/* Foto portada */}
-      {/* La portada conserva su proporción para verse completa; en pantallas anchas se limita
-          la altura y los lados se rellenan con la misma imagen desenfocada */}
-      <div style={{position:'relative',minHeight:biz.portada?0:200,overflow:'hidden',background:`linear-gradient(135deg,${C.emDD} 0%,${C.emBright} 40%,${C.orange} 80%,${C.red} 100%)`}}>
-        {biz.portada?(
-          <>
-            <img src={biz.portada} alt="" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',filter:'blur(24px)',transform:'scale(1.15)'}}/>
-            <img src={biz.portada} alt="" style={{position:'relative',display:'block',width:'100%',height:'auto',maxHeight:420,objectFit:'contain'}}/>
-          </>
-        ):<div aria-hidden="true" style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',color:'rgba(255,255,255,.3)',fontSize:48}}>🍽️</div>}
+      <div style={{position:'relative',height:200,overflow:'hidden',background:`linear-gradient(135deg,${C.emDD} 0%,${C.emBright} 40%,${C.orange} 80%,${C.red} 100%)`}}>
+        {biz.portada
+          ?<img src={biz.portada} alt="" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
+          :<div aria-hidden="true" style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',color:'rgba(255,255,255,.3)',fontSize:48}}>🍽️</div>}
         <div style={{position:'absolute',bottom:0,left:0,right:0,height:80,background:'linear-gradient(transparent,rgba(0,0,0,.35))'}}/>
       </div>
 
@@ -548,7 +543,7 @@ function ClienteView({products,biz}){
 // ══════════════════════════════════════════════════════════
 // ADMIN
 // ══════════════════════════════════════════════════════════
-function ImagePicker({value,onPick,uploading,round=false,hint,height=120,fit='cover'}){
+function ImagePicker({value,onPick,uploading,round=false,hint,height=120}){
   const ref=useRef();
   return(
     <div style={{display:'flex',alignItems:'center',gap:14,flexDirection:round?'row':'column'}}>
@@ -558,7 +553,7 @@ function ImagePicker({value,onPick,uploading,round=false,hint,height=120,fit='co
         display:'flex',alignItems:'center',justifyContent:'center',fontSize:round?26:30,color:C.emDD
       }}>
         {uploading?<span style={{fontSize:13,fontWeight:600}}>⏳ Subiendo...</span>
-          :value?<img src={value} alt="" style={{width:'100%',height:'100%',objectFit:fit}}/>
+          :value?<img src={value} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
           :<span style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4}}><span aria-hidden="true">📷</span><span style={{fontSize:12,fontWeight:600}}>Toca para subir</span></span>}
       </button>
       <input ref={ref} type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files[0];e.target.value='';if(f)onPick(f);}}/>
@@ -704,7 +699,7 @@ function AdminView({products,setProducts,biz,setBiz,onLogout}){
 
           <div style={{marginBottom:20}}>
             <span style={labelSt}>📸 Foto de portada</span>
-            <ImagePicker value={bizForm.portada} height={140} fit="contain" uploading={uploading==='portada'}
+            <ImagePicker value={bizForm.portada} height={140} uploading={uploading==='portada'}
               onPick={upload('portada','negocio',1600,v=>setBizForm(f=>({...f,portada:v})))}/>
           </div>
           <div style={{marginBottom:20}}>
