@@ -31,7 +31,7 @@ as $$
   select exists (select 1 from public.admins where user_id = (select auth.uid()));
 $$;
 revoke all on function public.es_admin() from public;
-grant execute on function public.es_admin() to anon, authenticated;
+grant execute on function public.es_admin() to authenticated;  -- las políticas de escritura son solo para authenticated
 
 -- 👇 CAMBIA el correo por el del usuario que creaste en Authentication → Users
 insert into public.admins (user_id)
