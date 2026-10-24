@@ -129,6 +129,8 @@ const C={
 };
 const CATS=['Proteínas','Carbohidratos','Ensaladas','Bebidas'];
 const CAT_ICONS={'Proteínas':'🍖','Carbohidratos':'🍚','Ensaladas':'🥗','Bebidas':'🥤'};
+// Fondo de la tarjeta cuando el producto no tiene foto (tonos suaves por categoría)
+const CAT_TINTS={'Proteínas':'#F6E3D6','Carbohidratos':'#F4EBCF','Ensaladas':'#E5ECD7','Bebidas':'#E0EEF0'};
 const WA_DEFAULT='573053739928'; // se usa si el negocio no tiene WhatsApp configurado
 const TZ='America/Bogota';
 const CART_KEY='pacomer.cart';
@@ -299,6 +301,46 @@ function ItemRow({it,onRemove}){
   );
 }
 
+// Tarjeta de producto: fondo de color (o foto completa), texto integrado y el precio como lo más visible.
+// Con un solo tamaño se agrega al tocarla; con dos, abre la elección de tamaño.
+const clamp2={display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'};
+function ProductCard({p,qty,onPick}){
+  const sizes=[p.p_small>0&&'small',p.p_large>0&&'large'].filter(Boolean);
+  const single=sizes.length===1?sizes[0]:null;
+  const price=single?(single==='small'?p.p_small:p.p_large):Math.min(p.p_small,p.p_large);
+  const photo=!!p.img;
+  const ink=photo?'#fff':C.dark;
+  return(
+    <button type="button" onClick={()=>onPick(single)}
+      aria-label={single?`Agregar ${p.name}, ${fmt(price)}`:`Elegir tamaño de ${p.name}, desde ${fmt(price)}`}
+      style={{position:'relative',height:200,padding:0,border:'none',borderRadius:18,overflow:'hidden',textAlign:'left',cursor:'pointer',
+        background:CAT_TINTS[p.cat]||C.emLL,color:ink,boxShadow:qty?`0 0 0 2px ${C.em}`:'0 0 0 1px #e7e1d8'}}>
+      {photo
+        ?<img src={p.img} alt="" loading="lazy" decoding="async" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>
+        :<span aria-hidden="true" style={{position:'absolute',top:12,right:12,fontSize:44,lineHeight:1,opacity:.9}}>{CAT_ICONS[p.cat]}</span>}
+      <span style={{position:'absolute',left:0,right:0,bottom:0,display:'flex',flexDirection:'column',gap:2,padding:photo?'44px 12px 12px':'0 12px 12px',
+        background:photo?'linear-gradient(to top,rgba(20,16,14,.88) 0%,rgba(20,16,14,.6) 55%,rgba(20,16,14,0) 100%)':'none'}}>
+        <span style={{fontSize:15,fontWeight:700,lineHeight:1.2,letterSpacing:'-.01em',...clamp2}}>{p.name}</span>
+        {p.descripcion&&<span style={{fontSize:12,fontWeight:500,lineHeight:1.35,color:photo?'rgba(255,255,255,.85)':'#554c45',...clamp2}}>{p.descripcion}</span>}
+        <span style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:6,marginTop:6}}>
+          <span style={{display:'flex',flexDirection:'column'}}>
+            {!single&&<span style={{fontSize:11,fontWeight:600,color:photo?'rgba(255,255,255,.85)':'#554c45'}}>desde</span>}
+            <span style={{fontSize:21,fontWeight:800,letterSpacing:'-.02em',lineHeight:1.05,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap'}}>{fmt(price)}</span>
+          </span>
+          <span aria-hidden="true" style={{height:32,minWidth:32,padding:single?0:'0 10px',borderRadius:999,background:'rgba(255,255,255,.9)',color:C.dark,
+            display:'flex',alignItems:'center',justifyContent:'center',fontSize:single?20:12,fontWeight:700,flex:'0 0 auto'}}>
+            {single?'+':'Tamaños'}
+          </span>
+        </span>
+      </span>
+      {qty>0&&(
+        <span aria-label={`${qty} en el plato`} style={{position:'absolute',top:10,left:10,minWidth:28,height:28,padding:'0 8px',borderRadius:999,background:C.em,color:'#fff',
+          fontSize:13,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center'}}>{qty}</span>
+      )}
+    </button>
+  );
+}
+
 function ClienteView({products,biz}){
   const firstCat=CATS.find(c=>products.some(p=>p.active&&p.cat===c))||CATS[0];
   const [cat,setCat]                   = useState(firstCat);
@@ -312,6 +354,7 @@ function ClienteView({products,biz}){
   const [touched,setTouched]           = useState(false);
   const [sent,setSent]                 = useState(false);
   const [plateAnim,setPlateAnim]       = useState(false);
+  const [sizeFor,setSizeFor]           = useState(null);   // producto con dos tamaños esperando elección
 
   useEffect(()=>{store.set(CART_KEY,{cart:cart.map(serializeItems),current:serializeItems(currentPlate)});},[cart,currentPlate]);
 
@@ -405,31 +448,10 @@ function ClienteView({products,biz}){
       )}
 
       {/* Grid productos */}
-      <section aria-label={cat} style={{padding:'0 12px',display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:10,maxWidth:900,margin:'0 auto'}}>
+      <section aria-label={cat} style={{padding:'0 12px',display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:12,maxWidth:900,margin:'0 auto'}}>
         {activeProd.map(p=>(
-          <article key={p.id} style={{background:C.white,borderRadius:14,overflow:'hidden',boxShadow:'0 1px 6px rgba(0,0,0,.08)',display:'flex',flexDirection:'column'}}>
-            <div style={{height:110,background:`linear-gradient(135deg,${C.emL},${C.orangeL})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36}}>
-              {p.img
-                ?<img src={p.img} alt={p.name} loading="lazy" decoding="async" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-                :<span aria-hidden="true">{CAT_ICONS[p.cat]}</span>}
-            </div>
-            <div style={{padding:'10px 10px 12px',display:'flex',flexDirection:'column',flex:1}}>
-              <h3 style={{fontWeight:700,fontSize:14,color:C.dark,marginBottom:2}}>{p.name}</h3>
-              <p style={{fontSize:12,color:C.grayD,marginBottom:8,lineHeight:1.4,flex:1}}>{p.descripcion}</p>
-              <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                {p.p_small>0&&(
-                  <button onClick={()=>addItem(p,'small')} aria-label={`Agregar ${p.name} pequeño, ${fmt(p.p_small)}`} style={{background:C.em,border:'none',borderRadius:8,padding:'9px 8px',fontSize:13,color:'#fff',fontWeight:700,cursor:'pointer',display:'flex',justifyContent:'space-between',gap:4}}>
-                    <span>+ Pequeño</span><span style={{whiteSpace:'nowrap'}}>{fmt(p.p_small)}</span>
-                  </button>
-                )}
-                {p.p_large>0&&(
-                  <button onClick={()=>addItem(p,'large')} aria-label={`Agregar ${p.name} grande, ${fmt(p.p_large)}`} style={{background:C.orangeBtn,border:'none',borderRadius:8,padding:'9px 8px',fontSize:13,color:'#fff',fontWeight:700,cursor:'pointer',display:'flex',justifyContent:'space-between',gap:4}}>
-                    <span>+ Grande</span><span style={{whiteSpace:'nowrap'}}>{fmt(p.p_large)}</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </article>
+          <ProductCard key={p.id} p={p} qty={currentPlate.filter(it=>it.product.id===p.id).length}
+            onPick={size=>size?addItem(p,size):setSizeFor(p)}/>
         ))}
         {activeProd.length===0&&(
           <p style={{color:C.grayD,gridColumn:'1/-1',textAlign:'center',padding:32,fontSize:14}}>Sin productos en esta categoría por ahora</p>
@@ -447,6 +469,28 @@ function ClienteView({products,biz}){
           <span aria-hidden="true">🍽️</span>
           <span aria-hidden="true" style={{position:'absolute',top:-5,right:-5,background:C.red,color:'#fff',borderRadius:'50%',width:24,height:24,fontSize:12,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff'}}>{totalPlates}</span>
         </button>
+      )}
+
+      {/* Elegir tamaño (productos con pequeño y grande) */}
+      {sizeFor&&(
+        <Modal label={`Tamaño de ${sizeFor.name}`} onClose={()=>setSizeFor(null)}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:14}}>
+            <div>
+              <h2 style={{color:C.dark,fontSize:20,fontWeight:800}}>{sizeFor.name}</h2>
+              {sizeFor.descripcion&&<p style={{color:C.grayD,fontSize:13,marginTop:2,lineHeight:1.4}}>{sizeFor.descripcion}</p>}
+            </div>
+            <CloseBtn onClick={()=>setSizeFor(null)}/>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            {[['small',sizeFor.p_small,C.em],['large',sizeFor.p_large,C.orangeBtn]].map(([size,price,bg])=>(
+              <button key={size} onClick={()=>{addItem(sizeFor,size);setSizeFor(null);}} aria-label={`Agregar ${sizeFor.name} ${sizeLabel(size).toLowerCase()}, ${fmt(price)}`}
+                style={{background:bg,color:'#fff',border:'none',borderRadius:14,padding:'16px 12px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'flex-start',gap:4}}>
+                <span style={{fontSize:14,fontWeight:700}}>{sizeLabel(size)}</span>
+                <span style={{fontSize:22,fontWeight:800,letterSpacing:'-.02em',fontVariantNumeric:'tabular-nums'}}>{fmt(price)}</span>
+              </button>
+            ))}
+          </div>
+        </Modal>
       )}
 
       {/* Modal carrito */}
