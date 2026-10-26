@@ -327,9 +327,15 @@ function ProductCard({p,qty,onPick}){
             {!single&&<span style={{fontSize:11,fontWeight:600,color:photo?'rgba(255,255,255,.85)':'#554c45'}}>desde</span>}
             <span style={{fontSize:21,fontWeight:800,letterSpacing:'-.02em',lineHeight:1.05,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap'}}>{fmt(price)}</span>
           </span>
-          <span aria-hidden="true" style={{height:32,minWidth:32,padding:single?0:'0 10px',borderRadius:999,background:'rgba(255,255,255,.9)',color:C.dark,
-            display:'flex',alignItems:'center',justifyContent:'center',fontSize:single?20:12,fontWeight:700,flex:'0 0 auto'}}>
-            {single?'+':'Tamaños'}
+          <span aria-hidden="true" style={{width:34,height:34,borderRadius:999,flex:'0 0 auto',
+            display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,
+            // Vidrio: fondo semitransparente + desenfoque de lo que hay detrás
+            background:photo?'rgba(255,255,255,.18)':'rgba(255,255,255,.5)',
+            color:photo?'#fff':C.dark,
+            border:`1px solid ${photo?'rgba(255,255,255,.45)':'rgba(255,255,255,.85)'}`,
+            boxShadow:photo?'inset 0 1px 0 rgba(255,255,255,.35),0 4px 12px rgba(0,0,0,.18)':'inset 0 1px 0 rgba(255,255,255,.9),0 2px 8px rgba(44,26,14,.08)',
+            backdropFilter:'blur(10px) saturate(160%)',WebkitBackdropFilter:'blur(10px) saturate(160%)'}}>
+            +
           </span>
         </span>
       </span>
